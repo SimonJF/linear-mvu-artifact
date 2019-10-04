@@ -1,0 +1,65 @@
+import LinearMvuAttrs;
+import LinearMvuHTML;
+import LinearMvuCommands;
+import LinearMvu;
+
+typename Model = [| NotStarted | Waiting | Result:Int |];
+
+typename Message = [| StartComputation | DeliverResult:Int |];
+
+sig view : (Model) ~%~> LinearMvuHTML.HTML(Message)
+fun view(model) {
+  open LinearMvuAttrs;
+  open LinearMvuHTML;
+
+  var a0 = LinearMvuAttrs.empty;
+  var h0 = LinearMvuHTML.empty;
+
+  var disabled = LinearMvuAttrs.attr("disabled", "disabled");
+
+  var (text, buttonAttr) =
+    switch(model) {
+      case NotStarted -> ("Not started", a0)
+      case Waiting -> ("Waiting", disabled)
+      case Result(n) -> ("Result: " ^^ intToString(n), a0)
+    };
+
+  div(a0,
+    button(onClick(fun() { StartComputation }) +@ buttonAttr,
+      textNode("Start computation")) +*
+    textNode(text))
+}
+
+fun fib(n) {
+  if (n <= 0) {
+    0
+  } else if (n == 1) {
+    1
+  } else {
+    fib(n - 1) + fib(n - 2)
+  }
+}
+
+sig updt : (Message, Model) ~%~> (Model, LinearMvuCommands.Command(Message))
+fun updt(msg, model) {
+  switch(msg) {
+    case StartComputation ->
+      var cmd =
+        LinearMvuCommands.spawnUnr(fun() { DeliverResult(fib(25)) });
+      (Waiting, cmd)
+    case DeliverResult(n) -> (Result(n), LinearMvuCommands.empty)
+  }
+}
+
+fun mainPage() {
+  LinearMvu.run("placeholder", NotStarted,
+      view, updt, fun(_) { LinearMvuSubscriptions.empty });
+  page
+    <html>
+      <body>
+        <div id="placeholder"></div>
+      </body>
+    </html>
+}
+
+serveThis(mainPage)

@@ -1,0 +1,224 @@
+import LinearMvuHTML;
+import LinearMvuAttrs;
+open import LinearMvu;
+import LinearMvuEvents;
+import LinearMvuCommands;
+
+typename Ping = [| Ping |];
+typename Pong = [| Pong |];
+
+typename PingPong = !Ping.?Pong.PingPong;
+
+module ClientCommon {
+  open LinearMvuHTML;
+  open LinearMvuAttrs;
+
+  fun makePage(isPinger, disabled) {
+    var caption = if (isPinger) { "Send Ping!" } else { "Send Pong!" };
+    var disabledAttr =
+      if (disabled) { attr("disabled", "disabled") } else { LinearMvuAttrs.empty };
+
+    vdom
+      <div id="main" class="container marketing">
+        <div class="row featurette pagination-centered">
+          <button type="button" class="btn btn-lg" id="pingButton"
+            e:onClick="{ fun() { ButtonPressed } }" { disabledAttr } >
+            { textNode(caption) }
+          </button>
+        </div>
+      </div>
+  }
+
+  var template =
+    page
+      <html>
+        <head>
+          <title>Links Ping Pong example</title>
+          <link href="http://fonts.googleapis.com/css?family=Merriweather:400,300italic,300" rel="stylesheet" type="text/css"></link>
+          <link href="http://fonts.googleapis.com/css?family=Kotta+One" rel="stylesheet" type="text/css"></link>
+          <link href="http://fonts.googleapis.com/css?family=Lora" rel="stylesheet" type="text/css"></link>
+          <link href="css/bootstrap.min.css" rel="stylesheet"></link>
+          <link href="css/abcd.css" rel="stylesheet"></link>
+        </head>
+
+        <body>
+          <div id="placeholder"></div>
+        </body>
+      </html>;
+}
+
+module Pinger {
+  typename WaitingModel = ();
+  typename WaitingMsg = [| Ponged:PingPong |];
+
+  typename PingingModel = [| Pinging: PingPong |];
+  typename PingingMsg = [| ButtonPressed |];
+
+  var emptyCmd = LinearMvuCommands.empty;
+
+
+  sig noSubs : forall a :: Type(Unl, Any), b :: Type(Any, Any), e :: Row . (a) ~e~> LinearMvuSubscriptions.Sub(b)
+  fun noSubs(_) { LinearMvuSubscriptions.empty }
+
+  mutual {
+    ## Waiting
+    fun waitingView(_) {
+      vdom
+        <div id="main" class="container marketing">
+          <h2>Pinger</h2>
+          <button type="button" class="btn btn-lg" id="pingButton" disabled="disabled">
+            Send Ping!
+          </button>
+        </div>
+    }
+
+    fun waitingUpdt(msg, _) {
+      switch(msg) {
+        case Ponged(c) ->
+          transition(Pinging(c), pingingView, pingingUpdt, noSubs,
+            pingingExtract, LinearMvuCommands.empty)
+      }
+    }
+
+    fun waitingExtract(_) { ((), ()) }
+
+    ## Pinging
+    fun pingingView(_) {
+      vdom
+        <div id="main" class="container marketing">
+          <h2>Pinger</h2>
+          <button type="button" class="btn btn-primary btn-lg" id="pingButton"
+            e:onClick="{fun() { ButtonPressed }}" >
+            Send Ping!
+          </button>
+        </div>
+    }
+
+    sig pingingUpdt : (PingingMsg, PingingModel) ~%~> Transition(PingingModel, PingingMsg)
+    fun pingingUpdt(msg, model) {
+      var Pinging(c) = model;
+      switch(msg) {
+        case ButtonPressed ->
+          var c = send(Ping, c);
+          var cmd =
+            LinearMvuCommands.spawnLinear(linfun() {
+              var (_, c) = receive(c); Ponged(c)
+            });
+          transition((), waitingView, waitingUpdt, noSubs, waitingExtract, cmd)
+      }
+    }
+
+    fun pingingExtract(model) {
+      (model, ())
+    }
+  }
+
+  sig setup : (AP(PingPong)) {}~> Page
+  fun setup(srvAP) {
+    # Spawn a thread on the client to request a channel from
+    # srvAP, and handle communication.
+    var clPid = spawnClient {
+      var c = accept(srvAP);
+      LinearMvu.runTransition("placeholder", Pinging(c), pingingView, pingingUpdt,
+        noSubs, pingingExtract, LinearMvuCommands.empty);
+    };
+    ClientCommon.template
+  }
+
+}
+
+module Ponger {
+  typename Ponger = !Pong.?Ping.Ponger;
+
+  typename WaitingModel = ();
+  typename WaitingMsg = [| Pinged:Ponger |];
+
+  typename PongingModel = [| Ponging: Ponger |];
+  typename PongingMsg = [| ButtonPressed |];
+
+  var emptyCmd = LinearMvuCommands.empty;
+
+  sig noSubs : forall a :: Type(Unl, Any), b :: Type(Any, Any), e :: Row . (a) ~e~> LinearMvuSubscriptions.Sub(b)
+  fun noSubs(_) { LinearMvuSubscriptions.empty }
+
+  mutual {
+    ## Waiting
+    fun waitingView(_) {
+      vdom
+        <div id="main" class="container marketing">
+          <h2>Ponger</h2>
+          <button type="button" class="btn btn-lg" id="pingButton" disabled="disabled">
+            Send Pong!
+          </button>
+        </div>
+    }
+
+    fun waitingUpdt(msg, _) {
+      switch(msg) {
+        case Pinged(c) ->
+          transition(Ponging(c), pongingView, pongingUpdt, noSubs,
+            pongingExtract, LinearMvuCommands.empty)
+      }
+    }
+
+    fun waitingExtract(_) { ((), ()) }
+
+    ## Ponging
+    fun pongingView(_) {
+      vdom
+        <div id="main" class="container marketing">
+          <h2>Ponger</h2>
+          <button type="button" class="btn btn-primary btn-lg" id="pingButton"
+            e:onClick="{fun() { ButtonPressed }}" >
+            Send Pong!
+          </button>
+        </div>
+    }
+
+    sig pongingUpdt : (PongingMsg, PongingModel) ~%~> Transition(PongingModel, PongingMsg)
+    fun pongingUpdt(msg, model) {
+      var Ponging(c) = model;
+      switch(msg) {
+        case ButtonPressed ->
+          var c = send(Pong, c);
+          var cmd =
+            LinearMvuCommands.spawnLinear(linfun() {
+              var (_, c) = receive(c); Pinged(c)
+            });
+          transition((), waitingView, waitingUpdt, noSubs, waitingExtract, cmd)
+      }
+    }
+
+    fun pongingExtract(model) {
+      (model, ())
+    }
+  }
+
+  sig setup : (AP(PingPong)) {}~> Page
+  fun setup(srvAP) {
+    # Spawn a thread on the client to request a channel from
+    # srvAP, and handle communication.
+    var clPid = spawnClient {
+      var c = request(srvAP);
+      var cmd =
+        LinearMvuCommands.spawnLinear(linfun() { var (_, c) = receive(c); Pinged(c) });
+
+      LinearMvu.runTransition("placeholder", (), waitingView, waitingUpdt,
+        noSubs, waitingExtract, cmd);
+    };
+    ClientCommon.template
+  }
+}
+
+
+fun main() {
+  var (srvAP: AP(PingPong)) = new();
+  addRoute("/pinger", fun(_) { Pinger.setup(srvAP) });
+  addRoute("/ponger", fun(_) { Ponger.setup(srvAP) });
+  addStaticRoute("/css", "examples/pingpong/css", [("css", "text/css")]);
+  serveWebsockets();
+  servePages();
+}
+
+main()
+
