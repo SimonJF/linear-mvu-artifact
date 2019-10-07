@@ -131,11 +131,14 @@ types is described by Lindley & Morris (2017).
      instructions in the "Two-factor authentication example" section later in
      this guide.
 
-  6. Run the smaller examples by invoking `./run-example.sh`. Note that
+  6. Run the PingPong example by invoking `./run-pingpong.sh` and follow the
+     instructions in the "PingPong" section later in this guide.
+
+  7. Run the smaller examples by invoking `./run-example.sh`. Note that
      the "Distributed Exceptions" examples require navigating to
      `http://localhost:8080` in your browser.
 
-  7. Remove any leftover containers and the image by running
+  8. Remove any leftover containers and the image by running
      `./cleanup.sh`
 
 You can also run your own examples by adding the file to the `custom_examples`
