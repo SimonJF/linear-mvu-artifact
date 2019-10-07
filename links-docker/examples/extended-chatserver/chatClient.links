@@ -122,12 +122,6 @@ mutual {
       message :: Type(Any, Any) . (model) ~%~> LinearMvuSubscriptions.Sub(message)
   fun emptySubs(_) { LinearMvuSubscriptions.empty }
 
-# sig waitingTransition : forall model :: Type(Any, Any), msg :: Type(Any, Any) .
-#   (Command(msg)) ~%~> Transition(model, msg)
-# fun waitingTransition(cmd) {
-#   transition((), waitingView, waitingUpdt, emptySubs, waitingExtract, cmd)
-# }
-
   sig waitForRooms :
     forall model :: Type(Any, Any), msg :: Type(Any, Any).
     () ~%~> Transition(model, msg)
@@ -278,7 +272,6 @@ mutual {
             +@ onClick(fun() { SubmitJoinRoom }), he))
     }
 
-    # TODO: Render error message
     div(ae,
       p(ae,
         textNode("Choose one of the existing rooms or create a new one.")) +*
@@ -354,7 +347,9 @@ mutual {
   }
 
   fun userJoined(nick, ri) {
-    addSystemMessage(nick ^^ " joined.", ri)
+    var newNicks = ri.nicknames ++ [nick];
+    var ri = addSystemMessage(nick ^^ " joined.", ri);
+    (ri with nicknames = newNicks)
   }
 
   fun userLeft(nick, ri) {
@@ -382,7 +377,43 @@ mutual {
     open LinearMvuHTML;
     open LinearMvuAttrs;
 
-    var adminBox = div(ae, he);
+    var adminBox = {
+
+      fun renderModBox(selectedNick) {
+        fun renderOption(name) {
+          var attr =
+            if (name == selectedNick) {
+              attr("selected", "selected")
+            } else {
+              LinearMvuAttrs.empty
+            };
+
+          option(attr, textNode(name))
+        }
+
+        var buttons = {
+          var btnClass = class("btn btn-primary");
+
+          button(btnClass +@ onClick(fun() { ModKick }), textNode("Kick")) +*
+          button(btnClass +@ onClick(fun() { ModMute }), textNode("Mute / Unmute")) +*
+          button(btnClass +@ onClick(fun() { ModMakeModerator }), textNode("Make Moderator"))
+        };
+
+        var options =
+          LinearMvuHTML.concatMap(renderOption, roomInfo.nicknames);
+
+        div(ae,
+          select_(onChange(fun(value) { ModUpdateSelection(value) }), options)
+          +* buttons)
+      }
+
+
+      switch (modInfo) {
+        case Just(selectedNick) ->
+          renderModBox(selectedNick)
+        case Nothing -> LinearMvuHTML.empty
+      }
+    };
 
     fun renderMessage(msg) {
       switch(msg) {
@@ -521,8 +552,6 @@ mutual {
             cancel(ms);
             modifyAndSubscribe(ri, cs, Just((newMs, sel)), cr)
           case Nothing ->
-            # TODO: "" is a hack, we should have "Select Name" or something,
-            # or better still, the first nickname
             modifyAndSubscribe(ri, cs, Just((newMs, "")), cr)
         }
       case SessionKick ->
